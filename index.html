@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.pixabay.com/photo/2014/04/02/14/05/snake-306109_1280.png" rel="icon">
+    <title>SNAKE GAME | by Hernán</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <h1> 🕹️ SNAKE GAME 🐍</h1> 
+    <canvas width="500" height="500"></canvas>
+
+    <!--Logica del juego, cargando mecanicas-->
+    <script>
+      
+  const STATE_RUNNING = 1;  // Va a estar detectando cuando el juego esta corriendo o perdiendo 
+  const STATE_LOSING = 2;
+
+  const TICK = 80; // Determinara los intervalos de tiempos en que se da el  desplazamiento de la serpiente 80 milisengundos
+  const SQUARE_SIZE = 10; // Es el tamaño de de los cuadros que se van a dibujar e el area del juego
+         
+  const BOARD_WIDTH = 50; // Espacio del campo virtual del juego
+  const BOARD_HEIGHT = 50;
+  const GROW_SCALE = 10; // Determinara cuanto crecera la serpiente cada vez que coma 
+  const DIRECTIONS_MAP = {// Mapa de teclas que determina la direccion que se mueva la serpiente
+        // Cada una contendra 2 elementos que cada uno determinda el desplaazmiento,  el primero se mueve en x y el segundo en y
+    'A': [-1,  0],
+    'D': [ 1,  0],
+    'S': [ 0,  1],
+    'W': [ 0, -1],
+    'a': [-1,  0],
+    'd': [ 1,  0],
+    's': [ 0,  1],
+    'w': [ 0, -1],
+  };
+
+        // Definir las variables del estado del juego 
+        // STATE contendra variables que tendran que ver con la logica del juego
+        // Referencia canvas de HTML pero sera null
+        // SNAKE es un reloj que tendra todas las posiciones de todos los puntos en el espacio que se encuentra la serpiente
+        // PREY es asi por que solamente tendremos una sola presa a la vez
+        // GROWWING Cuantos cuadros hay pendientes de crecer y se va disminuyendo en cada siclo de juego osea tic
+        let state = {
+          canvas: null,
+          context: null,
+          snake: [{x: 0, y: 0}],
+          direction: {x: 1, y: 0},
+          prey: {x: 0, y: 0},
+          growing: 0,
+          runState: STATE_RUNNING
+        };
+    
+    
+        // Funcion que genera posiciones aleatorias 
+
+
+        function randomXY() {
+          return {
+            x: parseInt(Math.random() * BOARD_WIDTH),
+            y: parseInt(Math.random() * BOARD_HEIGHT)
+          };
+        }
+      
+        function tick() {
+          const head = state.snake[0]; // Consumir a la presa
+          const dx = state.direction.x;
+          const dy = state.direction.y;
+          const highestIndex = state.snake.length - 1;
+          let tail = {}; // Crecimiento de la serpiente 
+          let interval = TICK;
+      
+          Object.assign(tail,
+            state.snake[state.snake.length - 1]);
+      
+          let didScore = (
+            head.x === state.prey.x
+            && head.y === state.prey.y
+          );
+      
+          if (state.runState === STATE_RUNNING) {
+            for (let idx = highestIndex; idx > -1; idx--) { // Desplazamiento de la serpiente 
+              const sq = state.snake[idx];
+      
+              if (idx === 0) { // Corresponde ala cabeza de la serpiente
+                sq.x += dx;
+                sq.y += dy;
+              } else {
+                sq.x = state.snake[idx - 1].x;
+                sq.y = state.snake[idx - 1].y;
+              }
+            }
+          } else if (state.runState === STATE_LOSING) { // Desaparicion
+            interval = 10;
+      
+            if (state.snake.length > 0) {
+              state.snake.splice(0, 1);
+            }
+      
+            if (state.snake.length === 0) {
+              state.runState = STATE_RUNNING; // Comienza otra partida Desplazamiento de la serpiente 
+              state.snake.push(randomXY()); // Damos otra poscion aleatoria
+              state.prey = randomXY();  // reposicionamos la presa
+            }
+          }
+      
+          if (detectCollision()) { // Colision
+            state.runState = STATE_LOSING;
+            state.growing = 0;
+          }
+      
+          if (didScore) {
+            state.growing += GROW_SCALE;
+            state.prey = randomXY();
+          }
+      
+          if (state.growing > 0) {
+            state.snake.push(tail);
+            state.growing -= 1;
+          }
+      
+          requestAnimationFrame(draw); // Llamado ala funcion de dibujado 
+          setTimeout(tick, interval);
+        }
+      
+        function detectCollision() { // Colision
+          const head = state.snake[0];
+      
+          if (head.x < 0
+            || head.x >= BOARD_WIDTH
+            || head.y >= BOARD_HEIGHT
+            || head.y < 0
+          ) {
+            return true;
+          }
+      
+          for (var idx = 1; idx < state.snake.length; idx++) {
+            const sq = state.snake[idx];
+      
+            if (sq.x === head.x && sq.y === head.y) {
+              return true;
+            }
+          }
+      
+          return false;
+        }
+      
+        function drawPixel(color, x, y) {
+          state.context.fillStyle = color;
+          state.context.fillRect(
+            x * SQUARE_SIZE,
+            y * SQUARE_SIZE,
+            SQUARE_SIZE,
+            SQUARE_SIZE
+          );
+        }
+      
+        function draw() {
+          state.context.clearRect(0, 0, 500, 500);
+      
+          for (var idx = 0; idx < state.snake.length; idx++) { // Recorrido de la variable snake
+            const {x, y} = state.snake[idx];
+            drawPixel('#22dd22', x, y); // Damos color verde 
+          }
+      
+          const {x, y} = state.prey; // PRESA
+          drawPixel('yellow', x, y); // DRAWPIXEL Dibujar los cuadritos de la serpiente o presa
+        }
+      // Insializacion 
+        window.onload = function() {
+          state.canvas = document.querySelector('canvas');
+          state.context = state.canvas.getContext('2d');
+      
+          // Mecanismo de presion de teclas
+          window.onkeydown = function(e) {
+            const direction = DIRECTIONS_MAP[e.key]; // Evento del teclado mostrando segun los parametros de arriba A D W S
+            if (direction) {
+              const [x, y] = direction;
+              if (-x !== state.direction.x
+                && -y !== state.direction.y) 
+              {
+                state.direction.x = x; // Significa que podemos cambiar de direccion
+                state.direction.y = y;
+              }
+            }
+          }
+      
+          tick();
+        };
+
+        // LOGICA DE JUEGO 
+        /**
+         Desplazamiento de la serpiente 
+         Consumir a la presa
+         Crecimiento de la serpiente 
+         Colision
+         Desaparicion 
+        */
+      </script>
+</body>
+</html>
